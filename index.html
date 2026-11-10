@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot Battery Maze</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400..700&family=Nunito:wght@400..800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fbf6ec;--ink:#1d2b4f;--muted:#5b6785;--orange:#e0602a;--orange-d:#b9481a;--blue:#2a67c9;--green:#2f8f4e;--red:#c0392b;--card:#ffffff;--line:#e4dccb;--soft:#f4ede0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,Arial,sans-serif;font-size:18px}
+button{font-family:inherit;font-size:18px;font-weight:800;border:3px solid var(--ink);background:#fff;color:var(--ink);border-radius:12px;padding:10px 16px;cursor:pointer;box-shadow:0 3px 0 var(--ink);transition:transform .05s}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--orange);color:#fff}
+button.blue{background:var(--blue);color:#fff}
+button.on{background:var(--ink);color:#fff}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px;flex-wrap:wrap}
+h1{font-family:Fredoka,Arial,sans-serif;font-weight:600;font-size:36px;margin:0}
+h2{font-family:Fredoka,Arial,sans-serif;font-weight:600;font-size:24px;margin:0 0 10px}
+.battery{display:flex;align-items:center;gap:14px;font-weight:800;font-size:22px}
+.batt-shell{width:220px;height:42px;border:4px solid var(--ink);border-radius:10px;position:relative;padding:3px;background:#fff}
+.batt-shell::after{content:"";position:absolute;right:-12px;top:10px;width:8px;height:14px;background:var(--ink);border-radius:0 4px 4px 0}
+.batt-fill{height:100%;border-radius:5px;background:var(--green);transition:width .3s,background .3s}
+.batt-num{font-family:Fredoka,Arial,sans-serif;font-size:30px;min-width:64px}
+main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(380px,1fr);gap:24px;padding:0 24px 24px;align-items:start}
+@media (max-width:960px){main{grid-template-columns:1fr}}
+.panel{background:var(--card);border-radius:20px;padding:18px;border:2px solid var(--line)}
+.maze{position:relative;width:100%;aspect-ratio:8/6}
+.maze>svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.robot{position:absolute;width:12.5%;height:16.6667%;transition:left .35s ease,top .35s ease;pointer-events:none}
+.robot .body{width:100%;height:100%;display:flex;align-items:center;justify-content:center;transition:transform .35s ease}
+.robot svg{width:80%;height:80%}
+.robot.bump svg{animation:shake .45s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8%)}40%{transform:translateX(8%)}60%{transform:translateX(-6%)}80%{transform:translateX(6%)}}
+.hit{stroke:transparent;stroke-width:20;cursor:pointer}
+.editing .hit:hover{stroke:rgba(224,96,42,.45)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.controls{margin-top:16px;display:grid;gap:14px}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper span{font-family:Fredoka,Arial,sans-serif;font-size:28px;min-width:34px;text-align:center}
+.stepper button{padding:6px 12px}
+.msg{margin-top:14px;border-radius:14px;padding:14px 16px;font-size:22px;font-weight:800;background:var(--soft);min-height:58px}
+.msg.good{background:#dff1e3;color:#1f6a37}
+.msg.bad{background:#fbe1dc;color:#8e2a1c}
+table{width:100%;border-collapse:collapse;font-size:18px}
+th{text-align:left;padding:8px 10px;font-weight:800;font-size:17px;line-height:1.2;background:#f1ece2;border:1.5px solid var(--ink)}
+th small{display:block;font-weight:600;font-size:14px}
+td{padding:6px 10px;border:1.5px solid var(--ink);vertical-align:middle;height:44px;background:#fff}
+td.arrow{white-space:nowrap}
+td.arrow span.cell{display:flex;align-items:center;gap:6px;font-family:Fredoka,Arial,sans-serif;font-size:22px;font-weight:600}
+td.math{white-space:nowrap;font-weight:800}
+td.start{font-family:Fredoka,Arial,sans-serif;font-size:22px;font-weight:600;color:#1f5e32}
+td.yes{font-weight:800;color:#8a5a00;background:#fdeeb8}
+tr.now td{background:#fde3d3}
+tr.neg td.math{color:var(--red)}
+.empty{color:var(--muted)}
+.key{display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#f6f2ea;border-radius:12px;padding:8px 14px;font-size:16px;margin-bottom:10px}
+.key span{display:flex;align-items:center;gap:6px}
+.icon{width:28px;height:28px;flex:none}
+.total{margin-top:12px;font-size:20px;font-weight:800}
+.small{font-size:16px;color:var(--muted)}
+.roles{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tag{border-radius:999px;padding:4px 12px;font-weight:800;font-size:16px;color:#fff}
+select{font-family:inherit;font-size:18px;font-weight:800;border:3px solid var(--ink);border-radius:12px;padding:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="row" style="gap:16px"><h1>Robot Battery Maze</h1>
+    <label class="row" style="gap:8px;font-weight:800">Maze <select id="mazeSel"></select></label></div>
+  <div class="battery">
+    <span>Battery</span>
+    <div class="batt-shell"><div class="batt-fill" id="battFill"></div></div>
+    <span class="batt-num" id="battNum">20</span>
+  </div>
+</header>
+<main>
+  <section class="panel">
+    <div class="maze" id="maze">
+      <svg id="mazeSvg" viewBox="0 0 800 600" aria-label="Maze grid"></svg>
+      <div class="robot" id="robot"><div class="body" id="robotBody">
+        <svg viewBox="0 0 100 100" aria-label="Robot">
+          <polygon points="50,2 38,18 62,18" fill="#2a67c9" stroke="#1d2b4f" stroke-width="4" stroke-linejoin="round"/>
+          <rect x="16" y="20" width="68" height="66" rx="16" fill="#e0602a" stroke="#1d2b4f" stroke-width="5"/>
+          <circle cx="36" cy="44" r="10" fill="#fff" stroke="#1d2b4f" stroke-width="4"/>
+          <circle cx="64" cy="44" r="10" fill="#fff" stroke="#1d2b4f" stroke-width="4"/>
+          <circle cx="36" cy="42" r="4" fill="#1d2b4f"/><circle cx="64" cy="42" r="4" fill="#1d2b4f"/>
+          <rect x="34" y="64" width="32" height="9" rx="4.5" fill="#1d2b4f"/>
+        </svg>
+      </div></div>
+    </div>
+    <div class="controls">
+      <div class="row">
+        <button class="primary" id="runBtn">&#9654; Run</button>
+        <button id="stepBtn">Step</button>
+        <button id="resetBtn">Reset robot</button>
+        <span style="flex:1"></span>
+        <button id="wallBtn">Edit walls</button>
+        <label class="row" style="gap:6px;font-weight:800">Start
+          <select id="startSel"><option>10</option><option>15</option><option selected>20</option></select>
+        </label>
+      </div>
+      <div class="msg" id="msg">Robot starts at <b>start</b>, facing right. Write a program to reach the <b>exit</b>.</div>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="roles">
+      <span class="tag" style="background:var(--blue)">Programmer: writes arrows</span>
+      <span class="tag" style="background:var(--green)">Compiler: says words + does math</span>
+      <span class="tag" style="background:var(--orange)">Robot: does exactly that</span>
+    </div>
+    <h2>Programmer</h2>
+    <div class="row">
+      <div class="stepper"><button id="minus" aria-label="Fewer steps">&minus;</button><span id="count">1</span><button id="plus" aria-label="More steps">+</button></div>
+      <button class="blue" id="fwdBtn">&uarr; Forward 1</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="blue" id="leftBtn">&#8634; Turn left</button>
+      <button class="blue" id="rightBtn">&#8635; Turn right</button>
+      <button id="undoBtn">Undo</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <h2 style="margin-top:20px">Program Card</h2>
+    <div class="key"><b>Write:</b><span id="keyF"></span><span id="keyR"></span><span id="keyL"></span></div>
+    <table>
+      <thead><tr><th style="width:64px">Line</th><th>Arrow + number<small>Programmer</small></th><th style="width:110px">Battery cost<small>Compiler</small></th><th style="width:100px">Charging +5?</th><th style="width:150px">Battery left<small>Compiler</small></th></tr></thead>
+      <tbody id="prog"></tbody>
+    </table>
+    <div class="total" id="total"></div>
+    <div class="row" style="margin-top:16px">
+      <button id="exampleBtn">Load a solution</button>
+      <button id="bugBtn">Load buggy example</button>
+    </div>
+    <p class="small">Every step forward costs 1 battery. Every turn costs 1 battery. Landing on a charging stop adds 5.</p>
+  </section>
+</main>
+<script>
+(function(){
+  var MAZES=[{"name": "Practice (class demo)", "start": [0, 0], "dir": 1, "exit": [7, 5], "walls": ["v:3:0", "v:3:1", "v:3:2", "v:3:3"], "example": [{"t": "F", "n": 3}, {"t": "R"}, {"t": "F", "n": 5}, {"t": "L"}, {"t": "F", "n": 4}]}, {"name": "Warm-up", "start": [0, 0], "dir": 1, "exit": [7, 5], "walls": ["h:0:2", "h:1:2", "h:2:2", "h:3:2", "h:4:2", "h:5:2"], "example": [{"t": "F", "n": 7}, {"t": "R"}, {"t": "F", "n": 5}]}, {"name": "Zigzag", "start": [0, 0], "dir": 2, "exit": [7, 5], "walls": ["v:0:0", "v:0:1", "v:0:2", "v:3:4", "v:3:5"], "example": [{"t": "F", "n": 3}, {"t": "L"}, {"t": "F", "n": 7}, {"t": "R"}, {"t": "F", "n": 2}]}, {"name": "Charging Stop", "start": [0, 5], "dir": 0, "exit": [7, 0], "walls": ["h:0:0", "h:1:0", "h:2:0", "h:3:0", "h:4:0", "v:2:2", "v:2:3", "v:2:4", "v:2:5", "v:5:1", "v:5:2", "v:5:3", "v:5:4"], "example": [{"t": "F", "n": 3}, {"t": "R"}, {"t": "F", "n": 2}, {"t": "L"}, {"t": "F", "n": 1}, {"t": "R"}, {"t": "F", "n": 3}, {"t": "L"}, {"t": "F", "n": 1}, {"t": "R"}, {"t": "F", "n": 2}], "charge": [2, 2]}, {"name": "Snake", "start": [0, 0], "dir": 2, "exit": [7, 0], "walls": ["v:1:0", "v:1:1", "v:1:2", "v:1:3", "v:4:1", "v:4:2", "v:4:3", "v:4:4", "v:4:5"], "example": [{"t": "F", "n": 4}, {"t": "L"}, {"t": "F", "n": 4}, {"t": "L"}, {"t": "F", "n": 4}, {"t": "R"}, {"t": "F", "n": 3}]}, {"name": "Challenge", "start": [0, 5], "dir": 1, "exit": [7, 0], "walls": ["h:0:3", "h:1:3", "h:2:3", "h:3:3", "v:5:3", "v:5:4", "v:5:5", "h:5:1", "h:6:1", "h:7:1", "v:3:1", "v:3:2", "h:2:1"], "example": [{"t": "F", "n": 4}, {"t": "L"}, {"t": "F", "n": 2}, {"t": "L"}, {"t": "F", "n": 1}, {"t": "R"}, {"t": "F", "n": 2}, {"t": "L"}, {"t": "F", "n": 1}, {"t": "R"}, {"t": "F", "n": 1}, {"t": "R"}, {"t": "F", "n": 5}], "charge": [2, 1]}];
+  var COLS=8, ROWS=6, CELL=100, INK="#1d2b4f";
+  var DIRS=[{dc:0,dr:-1},{dc:1,dr:0},{dc:0,dr:1},{dc:-1,dr:0}];
+  var cur=0, walls=new Set(MAZES[0].walls);
+  var program=[], count=1, startBattery=20, editing=false;
+  var st, actions=[], ai=0, timer=null, finished=false, reached=null;
+  var $=function(id){return document.getElementById(id)};
+  var NS="http://www.w3.org/2000/svg";
+  function M(){return MAZES[cur]}
+  function el(tag,attrs,parent){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+
+  var ARROW='<path d="M0 -24 L18 2 L7 2 L7 22 L-7 22 L-7 2 L-18 2 Z" fill="#e0602a" stroke="'+INK+'" stroke-width="3" stroke-linejoin="round"/>';
+  function fwdIcon(){return '<svg class="icon" viewBox="-26 -26 52 52" aria-hidden="true">'+ARROW+'</svg>'}
+  function turnIcon(right){
+    return '<svg class="icon" viewBox="-26 -26 52 52" aria-hidden="true"><g'+(right?'':' transform="scale(-1 1)"')+'><path d="M-12 18 V-2 A10 10 0 0 1 -2 -12 H8" fill="none" stroke="'+INK+'" stroke-width="5" stroke-linecap="round"/><path d="M6 -22 L20 -12 L6 -2 Z" fill="#e0602a" stroke="'+INK+'" stroke-width="3" stroke-linejoin="round"/></g></svg>';
+  }
+  $("keyF").innerHTML=fwdIcon()+" 3 = forward 3";
+  $("keyR").innerHTML=turnIcon(true)+" turn right";
+  $("keyL").innerHTML=turnIcon(false)+" turn left";
+
+  function freshState(){var m=M();return {c:m.start[0],r:m.start[1],dir:m.dir,angle:m.dir*90,battery:startBattery,charged:false,trail:{}}}
+  function isCharge(c,r){var ch=M().charge;return ch&&ch[0]===c&&ch[1]===r}
+
+  function drawMaze(){
+    var svg=$("mazeSvg"),m=M();svg.innerHTML="";
+    for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){
+      var fill="#ffffff";
+      if(st&&st.trail[c+","+r])fill="#fdebdc";
+      if(c===m.start[0]&&r===m.start[1])fill="#e9dfcc";
+      if(isCharge(c,r))fill=(st&&st.charged)?"#f1e7c4":"#fdeeb8";
+      if(c===m.exit[0]&&r===m.exit[1])fill="#d6ecd9";
+      el("rect",{x:c*CELL,y:r*CELL,width:CELL,height:CELL,fill:fill,stroke:"#d9d2c3","stroke-width":2},svg);
+    }
+    var t1=el("text",{x:m.start[0]*CELL+8,y:m.start[1]*CELL+26,"font-size":20,"font-weight":800,fill:INK,"font-family":"Nunito, Arial"},svg);t1.textContent="start";
+    var t2=el("text",{x:m.exit[0]*CELL+50,y:m.exit[1]*CELL+60,"text-anchor":"middle","font-size":26,"font-weight":800,fill:"#1f6a37","font-family":"Fredoka, Arial"},svg);t2.textContent="EXIT";
+    if(m.charge){
+      var cx=m.charge[0]*CELL+38,cy=m.charge[1]*CELL+50;
+      var pts=[[4,-30],[-14,4],[-1,4],[-6,30],[14,-6],[1,-6],[8,-30]].map(function(p){return (cx+p[0])+","+(cy+p[1])}).join(" ");
+      el("polygon",{points:pts,fill:"#f2b33d",stroke:INK,"stroke-width":3,"stroke-linejoin":"round",opacity:(st&&st.charged)?0.35:1},svg);
+      var t3=el("text",{x:cx+36,y:cy+9,"text-anchor":"middle","font-size":24,"font-weight":800,fill:INK,"font-family":"Fredoka, Arial"},svg);t3.textContent="+5";
+    }
+    walls.forEach(function(k){var p=k.split(":"),c=+p[1],r=+p[2];
+      if(p[0]==="v")el("line",{x1:(c+1)*CELL,y1:r*CELL,x2:(c+1)*CELL,y2:(r+1)*CELL,stroke:INK,"stroke-width":12,"stroke-linecap":"round"},svg);
+      else el("line",{x1:c*CELL,y1:(r+1)*CELL,x2:(c+1)*CELL,y2:(r+1)*CELL,stroke:INK,"stroke-width":12,"stroke-linecap":"round"},svg);
+    });
+    el("rect",{x:3,y:3,width:COLS*CELL-6,height:ROWS*CELL-6,fill:"none",stroke:INK,"stroke-width":8,rx:4},svg);
+    if(editing){
+      for(var r2=0;r2<ROWS;r2++)for(var c2=0;c2<COLS-1;c2++)hit("v:"+c2+":"+r2,(c2+1)*CELL,r2*CELL+10,(c2+1)*CELL,(r2+1)*CELL-10,svg);
+      for(var r3=0;r3<ROWS-1;r3++)for(var c3=0;c3<COLS;c3++)hit("h:"+c3+":"+r3,c3*CELL+10,(r3+1)*CELL,(c3+1)*CELL-10,(r3+1)*CELL,svg);
+    }
+  }
+  function hit(key,x1,y1,x2,y2,svg){
+    var l=el("line",{x1:x1,y1:y1,x2:x2,y2:y2,"class":"hit"},svg);
+    l.addEventListener("click",function(){walls.has(key)?walls.delete(key):walls.add(key);drawMaze()});
+  }
+  function placeRobot(){
+    var rb=$("robot");rb.style.left=(st.c*12.5)+"%";rb.style.top=(st.r*100/6)+"%";
+    $("robotBody").style.transform="rotate("+st.angle+"deg)";
+  }
+  function setBattery(v){
+    var pct=Math.min(100,Math.max(0,v)/startBattery*100);
+    $("battFill").style.width=pct+"%";
+    $("battFill").style.background=pct>50?"#2f8f4e":pct>25?"#e0a12a":"#c0392b";
+    $("battNum").textContent=Math.max(0,v);
+  }
+  function say(html,kind){var m=$("msg");m.innerHTML=html;m.className="msg"+(kind?" "+kind:"")}
+
+  function words(ins){
+    if(ins.t==="F")return "Go forward "+ins.n+" square"+(ins.n>1?"s":"");
+    return ins.t==="L"?"Turn left":"Turn right";
+  }
+  function arrowCell(ins){
+    if(ins.t==="F")return '<span class="cell">'+fwdIcon()+ins.n+'</span>';
+    return '<span class="cell">'+turnIcon(ins.t==="R")+'<span style="font-family:Nunito,Arial;font-size:17px;font-weight:800">turn '+(ins.t==="R"?"right":"left")+'</span></span>';
+  }
+  function cost(ins){return ins.t==="F"?ins.n:1}
+  function blocked(c,r,dir){
+    if(dir===1)return c===COLS-1||walls.has("v:"+c+":"+r);
+    if(dir===3)return c===0||walls.has("v:"+(c-1)+":"+r);
+    if(dir===2)return r===ROWS-1||walls.has("h:"+c+":"+r);
+    return r===0||walls.has("h:"+c+":"+(r-1));
+  }
+  // Which lines land on the charging stop (walks the program; stops at the first bump)
+  function chargeLines(){
+    var m=M(),c=m.start[0],r=m.start[1],d=m.dir,got=false,ok=true,res=[];
+    program.forEach(function(ins){
+      var hitCharge=false;
+      if(ok){
+        if(ins.t==="F"){for(var k=0;k<ins.n;k++){if(blocked(c,r,d)){ok=false;break}c+=DIRS[d].dc;r+=DIRS[d].dr;if(!got&&isCharge(c,r)){got=true;hitCharge=true}}}
+        else d=ins.t==="L"?(d+3)%4:(d+1)%4;
+      }
+      res.push(hitCharge);
+    });
+    return res;
+  }
+
+  function renderProgram(activeLine){
+    var tb=$("prog"),hasCharge=!!M().charge;
+    var html='<tr><td><b>Start</b></td><td></td><td></td><td></td><td class="start">'+startBattery+'</td></tr>';
+    if(!program.length){
+      html+='<tr><td>1</td><td class="empty" colspan="4">Click Forward or Turn to add a line.</td></tr>';
+      tb.innerHTML=html;$("total").innerHTML="Total battery used: 0 &nbsp;|&nbsp; Reached the exit? "+(reached===null?"":reached?"Yes":"No");return;
+    }
+    var left=startBattery,ch=chargeLines();
+    program.forEach(function(ins,i){
+      var before=left,cst=cost(ins);left=before-cst+(ch[i]?5:0);
+      var cls=(i===activeLine?"now":"")+(left<0?" neg":"");
+      var math=before+" - "+cst+(ch[i]?" + 5":"")+" = "+left;
+      html+='<tr class="'+cls+'"><td>'+(i+1)+'</td><td class="arrow">'+arrowCell(ins)+'</td><td>'+cst+'</td><td'+(ch[i]?' class="yes">yes':'>'+(hasCharge?"no":""))+'</td><td class="math">'+math+'</td></tr>';
+    });
+    tb.innerHTML=html;
+    var used=program.reduce(function(s,ins){return s+cost(ins)},0);
+    $("total").innerHTML="Total battery used: "+used+(left<0?' <span style="color:#c0392b">(not enough battery!)</span>':"")+" &nbsp;|&nbsp; Reached the exit? "+(reached===null?"":reached?"Yes":"No");
+  }
+
+  function buildActions(){
+    actions=[];program.forEach(function(ins,i){
+      if(ins.t==="F")for(var k=0;k<ins.n;k++)actions.push({t:"F",line:i});else actions.push({t:ins.t,line:i});
+    });
+  }
+  function intro(){
+    var dirs=["up","right","down","left"];
+    say("Robot starts at <b>start</b>, facing <b>"+dirs[M().dir]+"</b>. Write a program to reach the <b>exit</b>."+(M().charge?" Land on the charging stop for +5!":""));
+  }
+  function reset(){
+    stop();st=freshState();ai=0;finished=false;reached=null;buildActions();
+    drawMaze();placeRobot();setBattery(st.battery);renderProgram(-1);intro();lock(false);
+    $("bugBtn").disabled=cur!==0;
+  }
+  function lock(running){
+    ["fwdBtn","leftBtn","rightBtn","undoBtn","clearBtn","minus","plus","exampleBtn","bugBtn","wallBtn","startSel","mazeSel"].forEach(function(id){$(id).disabled=running});
+    $("runBtn").disabled=running;$("stepBtn").disabled=running;
+  }
+  function finish(html,kind,ok){finished=true;reached=!!ok;stop();renderProgram(-1);say(html,kind);lock(false);$("runBtn").disabled=true;$("stepBtn").disabled=true;$("bugBtn").disabled=cur!==0}
+
+  function step(){
+    if(finished)return;
+    if(!actions.length){say("The program is empty. Programmer, add some lines!","bad");return}
+    if(ai>=actions.length){finish("The program ended, but the robot is not at the exit. Debug time: what line is missing?","bad");return}
+    var a=actions[ai];renderProgram(a.line);
+    if(st.battery<=0){finish("Out of battery! The robot stopped. Can you find a shorter path?","bad");return}
+    var note="";
+    if(a.t==="F"){
+      if(blocked(st.c,st.r,st.dir)){
+        var rb=$("robot");rb.classList.remove("bump");void rb.offsetWidth;rb.classList.add("bump");
+        finish("Bump! The robot hit a wall on line "+(a.line+1)+". That's a bug. Time to debug!","bad");return;
+      }
+      st.c+=DIRS[st.dir].dc;st.r+=DIRS[st.dir].dr;st.trail[st.c+","+st.r]=1;
+    }else if(a.t==="L"){st.dir=(st.dir+3)%4;st.angle-=90}
+    else{st.dir=(st.dir+1)%4;st.angle+=90}
+    st.battery-=1;ai++;
+    if(!st.charged&&isCharge(st.c,st.r)){st.charged=true;st.battery+=5;note=" Charging stop! +5 battery."}
+    drawMaze();placeRobot();setBattery(st.battery);
+    var ex=M().exit;
+    if(st.c===ex[0]&&st.r===ex[1]){
+      stop();
+      setTimeout(function(){finish("You made it! Battery left: "+st.battery+".","good",true)},350);
+      return;
+    }
+    say("Line "+(a.line+1)+": "+words(program[a.line])+". Battery left: "+st.battery+"."+note);
+  }
+  function stop(){if(timer){clearInterval(timer);timer=null}}
+  function edited(){reset()}
+  function add(ins){program.push(ins);edited()}
+  function setCount(n){count=n;$("count").textContent=count;$("fwdBtn").innerHTML="&uarr; Forward "+count}
+
+  MAZES.forEach(function(m,i){var o=document.createElement("option");o.value=i;o.textContent=m.name;$("mazeSel").appendChild(o)});
+  $("mazeSel").onchange=function(){cur=+this.value;walls=new Set(M().walls);program=[];reset()};
+  $("plus").onclick=function(){setCount(Math.min(9,count+1))};
+  $("minus").onclick=function(){setCount(Math.max(1,count-1))};
+  $("fwdBtn").onclick=function(){add({t:"F",n:count})};
+  $("leftBtn").onclick=function(){add({t:"L"})};
+  $("rightBtn").onclick=function(){add({t:"R"})};
+  $("undoBtn").onclick=function(){program.pop();edited()};
+  $("clearBtn").onclick=function(){program=[];edited()};
+  $("exampleBtn").onclick=function(){walls=new Set(M().walls);program=JSON.parse(JSON.stringify(M().example));edited()};
+  $("bugBtn").onclick=function(){program=[{t:"F",n:7},{t:"R"},{t:"F",n:5}];edited()};
+  $("resetBtn").onclick=function(){reset()};
+  $("stepBtn").onclick=function(){step()};
+  $("runBtn").onclick=function(){
+    if(!program.length){say("The program is empty. Programmer, add some lines!","bad");return}
+    lock(true);step();
+    if(!finished)timer=setInterval(step,650);
+  };
+  $("wallBtn").onclick=function(){
+    editing=!editing;$("wallBtn").classList.toggle("on",editing);$("wallBtn").textContent=editing?"Done editing":"Edit walls";
+    $("maze").classList.toggle("editing",editing);drawMaze();
+    if(editing)say("Click between two squares to add or remove a wall.");else reset();
+  };
+  $("startSel").onchange=function(){startBattery=+this.value;reset()};
+  reset();
+})();
+</script>
+</body>
+</html>
